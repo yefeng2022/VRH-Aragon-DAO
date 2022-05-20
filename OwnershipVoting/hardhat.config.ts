@@ -30,7 +30,7 @@ const config: HardhatUserConfig = {
   },
   aragon: {
     appEnsName: "ownership-voting.open.aragonpm.eth",
-    appContractName: "OwnershipVoting",
+    appContractName: "Voting",
     appRoles: [
       {
         name: "Create new votes",

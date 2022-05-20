@@ -45,11 +45,17 @@ npx hardhat publish major --network <network>
 npx hardhat etherscan-verify --network <network> --license "MIT"
 ```
 
+upload infura ipfs (download infura ipfs-upload-client)
+
+```shell
+ipfs-upload-client --id <project-id>  --secret <project-secret> dist
+```
+
 verify aragon app from aragon-cli
 
 ```shell
-aragon apm versions guild-voting.open.aragonpm.eth --env aragon:rinkeby
-aragon apm info guild-voting.open.aragonpm.eth --env aragon:rinkeby --ipfs-rpc http://localhost:5001 --ipfs-gateway http://localhost:8080/ipfs
+aragon apm versions create-guild-voting.open.aragonpm.eth --env aragon:rinkeby
+aragon apm info create-guild-voting.open.aragonpm.eth --env aragon:rinkeby --ipfs-rpc https://ipfs.infura-ipfs.io/:5001 --ipfs-gateway https://ipfs.infura-ipfs.io/ipfs
 ```
 
 ## Installing the app in a DAO
