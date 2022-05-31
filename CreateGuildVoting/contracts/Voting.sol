@@ -68,7 +68,7 @@ contract Voting is IForwarder, AragonApp {
     //2500000000000000000000
     uint256 public minBalanceLowerLimit;
     uint256 public minBalanceUpperLimit;
-    //100000000000000000000
+    //1000000000000000000000000
     uint256 public minGuildBalanceLowerLimit;
     uint256 public minGuildBalanceUpperLimit;
     //43200
@@ -95,7 +95,7 @@ contract Voting is IForwarder, AragonApp {
     event ChangeMinQuorum(uint64 minAcceptQuorumPct);
 
     event MinimumBalanceSet(uint256 minBalance);
-    event MinGuildBalanceSet(uint256 minGuildBalance);
+    event MinimumGuildBalanceSet(uint256 minGuildBalance);
     event MinimumTimeSet(uint256 minTime);
 
     modifier voteExists(uint256 _voteId) {
@@ -110,7 +110,7 @@ contract Voting is IForwarder, AragonApp {
     }
 
     modifier minGuildBalanceCheck(uint256 _minGuildBalance) {
-        //_minGuildBalance to be at least the equivalent of 10k locked for a year (1e18 precision)
+        //_minGuildBalance to be at least the equivalent of 4000k locked for a year (1e18 precision)
         require(_minGuildBalance >= minGuildBalanceLowerLimit && _minGuildBalance <= minGuildBalanceUpperLimit, "Min guild balance should be within initialization hardcoded limits");
         _;
     }
@@ -187,7 +187,7 @@ contract Voting is IForwarder, AragonApp {
         minTimeUpperLimit = _minTimeUpperLimit;
 
         emit MinimumBalanceSet(minBalance);
-        emit MinGuildBalanceSet(minGuildBalance);
+        emit MinimumGuildBalanceSet(minGuildBalance);
         emit MinimumTimeSet(minTime);
 
         enableVoteCreation = true;
@@ -235,15 +235,15 @@ contract Voting is IForwarder, AragonApp {
     }
 
     /**
-    * @notice Change min guild balance needed to success a vote to `_minGuildBalance`
-    * @param _minGuildBalance New min guild balance
+    * @notice Change Minimum guild balance needed to success a vote to `_minGuildBalance`
+    * @param _minGuildBalance New Minimum guild balance
     */
 
     function setMinGuildBalance(uint256 _minGuildBalance) external auth(SET_MIN_GUILD_BALANCE_ROLE) minGuildBalanceCheck(_minGuildBalance) {
-        //min guild balance can't be set to lower than 10k * 1 year
+        //min guild balance can't be set to lower than 4000k * 1 year
         minGuildBalance = _minGuildBalance;
 
-        emit MinGuildBalanceSet(_minGuildBalance);
+        emit MinimumGuildBalanceSet(_minGuildBalance);
     }
 
     /**
