@@ -110,7 +110,6 @@ contract Voting is IForwarder, AragonApp {
     }
 
     modifier minGuildBalanceCheck(uint256 _minGuildBalance) {
-        //_minGuildBalance to be at least the equivalent of 4000k locked for a year (1e18 precision)
         require(_minGuildBalance >= minGuildBalanceLowerLimit && _minGuildBalance <= minGuildBalanceUpperLimit, "Min guild balance should be within initialization hardcoded limits");
         _;
     }
@@ -240,7 +239,6 @@ contract Voting is IForwarder, AragonApp {
     */
 
     function setMinGuildBalance(uint256 _minGuildBalance) external auth(SET_MIN_GUILD_BALANCE_ROLE) minGuildBalanceCheck(_minGuildBalance) {
-        //min guild balance can't be set to lower than 4000k * 1 year
         minGuildBalance = _minGuildBalance;
 
         emit MinimumGuildBalanceSet(_minGuildBalance);
