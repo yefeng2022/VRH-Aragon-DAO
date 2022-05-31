@@ -23,6 +23,7 @@ contract Voting is IForwarder, AragonApp {
     bytes32 public constant MODIFY_SUPPORT_ROLE = 0xda3972983e62bdf826c4b807c4c9c2b8a941e1f83dfa76d53d6aeac11e1be650; //keccak256("MODIFY_SUPPORT_ROLE");
     bytes32 public constant MODIFY_QUORUM_ROLE = 0xad15e7261800b4bb73f1b69d3864565ffb1fd00cb93cf14fe48da8f1f2149f39; //keccak256("MODIFY_QUORUM_ROLE");
 
+    bytes32 public constant SET_MIN_BALANCE_ROLE = 0xb1f3f26f63ad27cd630737a426f990492f5c674208299d6fb23bb2b0733d3d66; //keccak256("SET_MIN_BALANCE_ROLE")
     bytes32 public constant SET_MIN_GUILD_BALANCE_ROLE = 0xf01fb8ee90ba13d32249a17d33d118a57c616adf8cd86c2cbfd246ef2a5216bd; //keccak256("SET_MIN_GUILD_BALANCE_ROLE")
     bytes32 public constant SET_MIN_TIME_ROLE = 0xe7ab0252519cd959720b328191bed7fe61b8e25f77613877be7070646d12daf0; //keccak256("SET_MIN_TIME_ROLE")
 
@@ -64,6 +65,9 @@ contract Voting is IForwarder, AragonApp {
     uint64 public minAcceptQuorumPct;
     uint64 public voteTime;
 
+    //2500000000000000000000
+    uint256 public minBalanceLowerLimit;
+    uint256 public minBalanceUpperLimit;
     //100000000000000000000
     uint256 public minGuildBalanceLowerLimit;
     uint256 public minGuildBalanceUpperLimit;
@@ -72,6 +76,7 @@ contract Voting is IForwarder, AragonApp {
     //1209600
     uint256 public minTimeUpperLimit;
 
+    uint256 public minBalance;
     uint256 public minGuildBalance;
     uint256 public minTime;
 
@@ -83,17 +88,24 @@ contract Voting is IForwarder, AragonApp {
 
     mapping(address => uint256) public lastCreateVoteTimes;
 
-    event StartVote(uint256 indexed voteId, address indexed creator, string metadata, uint256 minGuildBalance, uint256 minTime, uint256 totalSupply, uint256 creatorVotingPower);
+    event StartVote(uint256 indexed voteId, address indexed creator, string metadata, uint256 minBalance, uint256 minGuildBalance, uint256 minTime, uint256 totalSupply, uint256 creatorVotingPower);
     event CastVote(uint256 indexed voteId, address indexed voter, bool supports, uint256 stake);
     event ExecuteVote(uint256 indexed voteId);
     event ChangeSupportRequired(uint64 supportRequiredPct);
     event ChangeMinQuorum(uint64 minAcceptQuorumPct);
 
+    event MinimumBalanceSet(uint256 minBalance);
     event MinGuildBalanceSet(uint256 minGuildBalance);
     event MinimumTimeSet(uint256 minTime);
 
     modifier voteExists(uint256 _voteId) {
         require(_voteId < votesLength, ERROR_NO_VOTE);
+        _;
+    }
+
+    modifier minBalanceCheck(uint256 _minBalance) {
+        //_minBalance to be at least the equivalent of 10k locked for a year (1e18 precision)
+        require(_minBalance >= minBalanceLowerLimit && _minBalance <= minBalanceUpperLimit, "Min balance should be within initialization hardcoded limits");
         _;
     }
 
@@ -114,8 +126,11 @@ contract Voting is IForwarder, AragonApp {
     * @param _supportRequiredPct Percentage of yeas in casted votes for a vote to succeed (expressed as a percentage of 10^18; eg. 10^16 = 1%, 10^18 = 100%)
     * @param _minAcceptQuorumPct Percentage of yeas in total possible votes for a vote to succeed (expressed as a percentage of 10^18; eg. 10^16 = 1%, 10^18 = 100%)
     * @param _voteTime Seconds that a vote will be open for token holders to vote (unless enough yeas or nays have been cast to make an early decision)
+    * @param _minBalance Minumum balance that a token holder should have to create a new vote
     * @param _minGuildBalance Minumum guild balance that a token holder should have to create a new vote
     * @param _minTime Minimum time between a user's previous vote and creating a new vote
+    * @param _minBalanceLowerLimit Hardcoded lower limit for _minBalance on initialization
+    * @param _minBalanceUpperLimit Hardcoded Upper limit for _minBalance on initialization
     * @param _minGuildBalanceLowerLimit Hardcoded lower limit for _minGuildBalance on initialization
     * @param _minGuildBalanceUpperLimit Hardcoded Upper limit for _minGuildBalance on initialization
     * @param _minTimeLowerLimit Hardcoded lower limit for _minTime on initialization
@@ -125,8 +140,11 @@ contract Voting is IForwarder, AragonApp {
         uint64 _supportRequiredPct, 
         uint64 _minAcceptQuorumPct, 
         uint64 _voteTime,
+        uint256 _minBalance,
         uint256 _minGuildBalance,
         uint256 _minTime,
+        uint256 _minBalanceLowerLimit,
+        uint256 _minBalanceUpperLimit,
         uint256 _minGuildBalanceLowerLimit,
         uint256 _minGuildBalanceUpperLimit,
         uint256 _minTimeLowerLimit,
@@ -135,6 +153,7 @@ contract Voting is IForwarder, AragonApp {
         assert(CREATE_VOTES_ROLE == keccak256("CREATE_VOTES_ROLE"));
         assert(MODIFY_SUPPORT_ROLE == keccak256("MODIFY_SUPPORT_ROLE"));
         assert(MODIFY_QUORUM_ROLE == keccak256("MODIFY_QUORUM_ROLE"));
+        assert(SET_MIN_BALANCE_ROLE == keccak256("SET_MIN_BALANCE_ROLE"));
         assert(SET_MIN_GUILD_BALANCE_ROLE == keccak256("SET_MIN_GUILD_BALANCE_ROLE"));
         assert(SET_MIN_TIME_ROLE == keccak256("SET_MIN_TIME_ROLE"));
         assert(DISABLE_VOTE_CREATION == keccak256("DISABLE_VOTE_CREATION"));
@@ -145,6 +164,7 @@ contract Voting is IForwarder, AragonApp {
         require(_minAcceptQuorumPct <= _supportRequiredPct, ERROR_INIT_PCTS);
         require(_supportRequiredPct < PCT_BASE, ERROR_INIT_SUPPORT_TOO_BIG);
 
+        require(_minBalance >= _minBalanceLowerLimit && _minBalance <= _minBalanceUpperLimit);
         require(_minGuildBalance >= _minGuildBalanceLowerLimit && _minGuildBalance <= _minGuildBalanceUpperLimit);
         require(_minTime >= _minTimeLowerLimit && _minTime <= _minTimeUpperLimit);
 
@@ -155,14 +175,18 @@ contract Voting is IForwarder, AragonApp {
 
         uint256 decimalsMul = uint256(10) ** token.decimals();
 
+        minBalance = _minBalance.mul(decimalsMul);
         minGuildBalance = _minGuildBalance.mul(decimalsMul);
         minTime = _minTime;
 
+        minBalanceLowerLimit = _minBalanceLowerLimit.mul(decimalsMul);
+        minBalanceUpperLimit = _minBalanceUpperLimit.mul(decimalsMul);
         minGuildBalanceLowerLimit = _minGuildBalanceLowerLimit.mul(decimalsMul);
         minGuildBalanceUpperLimit = _minGuildBalanceUpperLimit.mul(decimalsMul);
         minTimeLowerLimit = _minTimeLowerLimit;
         minTimeUpperLimit = _minTimeUpperLimit;
 
+        emit MinimumBalanceSet(minBalance);
         emit MinGuildBalanceSet(minGuildBalance);
         emit MinimumTimeSet(minTime);
 
@@ -196,6 +220,18 @@ contract Voting is IForwarder, AragonApp {
         minAcceptQuorumPct = _minAcceptQuorumPct;
 
         emit ChangeMinQuorum(_minAcceptQuorumPct);
+    }
+
+    /**
+    * @notice Change minimum balance needed to create a vote to `_minBalance`
+    * @param _minBalance New minimum balance
+    */
+
+    function setMinBalance(uint256 _minBalance) external auth(SET_MIN_BALANCE_ROLE) minBalanceCheck(_minBalance) {
+        //min balance can't be set to lower than 10k * 1 year
+        minBalance = _minBalance;
+
+        emit MinimumBalanceSet(_minBalance);
     }
 
     /**
@@ -368,8 +404,7 @@ contract Voting is IForwarder, AragonApp {
     }
 
     function canCreateNewVote(address _sender) public view returns(bool) {
-        //return enableVoteCreation && token.balanceOf(_sender) >= minBalance &&  block.timestamp.sub(minTime) >= lastCreateVoteTimes[_sender];
-        return enableVoteCreation && block.timestamp.sub(minTime) >= lastCreateVoteTimes[_sender];
+        return enableVoteCreation && token.balanceOf(_sender) >= minBalance &&  block.timestamp.sub(minTime) >= lastCreateVoteTimes[_sender];
     }
 
     /**
@@ -448,7 +483,7 @@ contract Voting is IForwarder, AragonApp {
         vote_.votingPower = votingPower;
         vote_.executionScript = _executionScript;
 
-        emit StartVote(voteId, msg.sender, _metadata, minGuildBalance, minTime, token.totalSupply(), token.balanceOfAt(msg.sender, snapshotBlock));
+        emit StartVote(voteId, msg.sender, _metadata, minBalance, minGuildBalance, minTime, token.totalSupply(), token.balanceOfAt(msg.sender, snapshotBlock));
 
         lastCreateVoteTimes[msg.sender] = getTimestamp64();
 
