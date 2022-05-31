@@ -48,6 +48,11 @@ const config: HardhatUserConfig = {
         params: ["New quorum", "Current quorum"],
       },
       {
+        name: "Set the minimum required balance",
+        id: "SET_MIN_BALANCE_ROLE",
+        params: [],
+      },
+      {
         name: "Set the minimum guild required balance",
         id: "SET_MIN_GUILD_BALANCE_ROLE",
         params: [],
