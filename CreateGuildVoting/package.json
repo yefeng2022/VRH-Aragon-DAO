@@ -27,7 +27,7 @@
   "dependencies": {
     "@aragon/apps-shared-minime": "^1.0.2",
     "@aragon/os": "^4.4.0",
-    "@openzeppelin/contracts": "^3.2.0"
+    "@openzeppelin/contracts": "^4.9.5"
   },
   "devDependencies": {
     "@1hive/hardhat-aragon": "^0.1.0",
